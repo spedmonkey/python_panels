@@ -5,6 +5,30 @@
  used by the application.  Note, that two definitions of the
  same interface or of the interfaces menu are not allowed
  in a single file. -->
+  <interfacesMenu type="panetab">
+    <interfaceItem name="ConstraintBrowser"/>
+    <interfaceItem name="pdgdatalayerpanel"/>
+    <interfaceItem name="pdgpathmap"/>
+    <interfaceItem name="pdgservicemenu"/>
+    <interfaceItem name="PackageBrowser"/>
+    <interfaceItem name="taskgraphtable"/>
+    <interfaceItem name="ViewerHandleBrowser"/>
+    <interfaceItem name="ViewerStateBrowser"/>
+    <interfaceItem name="contexteditor"/>
+    <interfaceItem name="sesi_auto_rigs"/>
+    <interfaceItem name="sesi_pose_space_deform"/>
+    <interfaceItem name="motionclipmixer"/>
+    <interfaceItem name="rig_tree"/>
+    <interfaceItem name="sesi_character_picker"/>
+    <interfaceItem name="sesi_pose_library"/>
+    <interfaceItem name="SceneGraphDetails"/>
+    <interfaceItem name="SceneGraphLayersPanel"/>
+    <interfaceItem name="sesi_light_linker"/>
+    <interfaceItem name="sesi_light_mixer"/>
+    <interfaceItem name="log_viewer"/>
+    <interfaceItem name="layout_asset_gallery"/>
+    <interfaceItem name="test"/>
+  </interfacesMenu>
   <interface name="interface1" label="New Python Interface" icon="MISC_python" showNetworkNavigationBar="false" help_url="">
     <script><![CDATA[########################################################################
 # Replace the sample code below with your own to create a

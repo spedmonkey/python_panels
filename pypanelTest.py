@@ -66,8 +66,10 @@ class Window(QtWidgets.QMainWindow):
         self.refresh_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+r'), self)
         self.refresh_shortcut.activated.connect(self.refresh)
 
-        self.check_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+c'), self)
-        self.check_shortcut.activated.connect(self.iterate_up)
+        self.copy_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+c'), self)
+        self.copy_shortcut.activated.connect(lambda: (self.copy_shot(self.view.selectedIndexes())))
+        self.paste_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+v'), self)
+        self.paste_shortcut.activated.connect(lambda: (self.paste_shot(self.view.selectedIndexes())))
 
         self.model.itemDataChanged.connect(self.on_item_changed)
         self.view.expanded.connect(self.view_expand_collapse_changed)
@@ -274,6 +276,64 @@ class Window(QtWidgets.QMainWindow):
             child_list.append(child_state)
         allSame = all(x == child_list[0] for x in child_list)
         return (allSame, child_list)
+
+    def copy_shot(self, indexes):
+        node_list = []
+        for index in indexes:
+            item = self.model.itemFromIndex(index)
+            if item.user_type == "shot":
+                self.loop_copy_shot(item, node_list)
+
+    def loop_copy_shot(self, item, node_list):
+        node_list_child_attr = []
+        if item.hasChildren() == True:
+            for row in range(item.rowCount()):
+                child = item.child(row, 0)
+                child_frame_range = item.child(row, 1)
+                child_dict = self.item_get_attrs(child)
+                child_frame_range_dict = self.item_get_attrs(child_frame_range)
+                node_list_child_attr.append((child_dict, child_frame_range_dict))
+                self.loop_copy_shot(child, node_list_child_attr)
+            node_list.append(node_list_child_attr)
+
+        else:
+            self.node_list =  node_list
+
+    def item_get_attrs(self, item):
+        if item.user_type == "render_node":
+            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"
+        elif item.user_type == "frame_range":
+            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"
+        elif item.user_type == "shot":
+            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"
+        elif item.user_type == "group":
+            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"
+        attr_dict = {"name": item.text(),
+                       "checkable": item.isCheckable(),
+                       "editable": item.isEditable(),
+                       "user_type": item.user_type,
+                       "setDragEnabled": item.isDragEnabled(),
+                       "setDropEnabled": item.isDropEnabled(),
+                       "icon": icon}
+        return attr_dict
+
+    def paste_shot(self, indexes):
+        for i in  (self.node_list):
+            print (i)
+        for index in indexes:
+            item = self.model.itemFromIndex(index)
+            for row in reversed(range(item.rowCount())):
+                print (row)
+                item.removeRow(row)
+        for index in indexes:
+            item = self.model.itemFromIndex(index)
+            for node_tuple in self.node_list:
+                node =self.generic_item(**node_tuple[0])
+                frame_range = self.generic_item(**node_tuple[1])
+                print (node, frame_range)
+                item.appendRow([node, frame_range])
+
+
 
 class StandardItemModel(QtGui.QStandardItemModel):
     itemDataChanged = QtCore.Signal(object, object)
