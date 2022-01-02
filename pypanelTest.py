@@ -452,28 +452,6 @@ class StandardItemModel(QtGui.QStandardItemModel):
             self.itemDataChanged.emit(self.itemFromIndex(index), role)
         return result
 
-
-
-class StandardItem(QtGui.QStandardItem):
-    '''This is the item I'd like to drop into the view'''
-    _user_typeRole = QtCore.Qt.UserRole + 2
-    def __init__(self, parent=None):
-        super(StandardItem, self).__init__(parent)
-        self.user_type = "shot"
-        self.user_icon ="path to icon"
-
-    def clone(self):
-        return StandardItem()
-
-    @property
-    def user_type(self):
-        return self.data(self._user_typeRole)
-
-    @user_type.setter
-    def user_type(self, value):
-        self.setData(value, self._user_typeRole)
-
-
 class NonBinTree:
 
     def __init__(self, val):
