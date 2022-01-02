@@ -15,7 +15,9 @@ class awesome(object):
 class Window(QtWidgets.QMainWindow):
 
     RENDER_NODE = { "name": "render node",
+
                     "checkable": True,
+                    "checkState": QtCore.Qt.Unchecked,
                     "editable": False,
                     "user_type": "render_node",
                     "setDragEnabled":True,
@@ -23,6 +25,7 @@ class Window(QtWidgets.QMainWindow):
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"}
 
     FRAME_RANGE = { "name": "frame_range",
+
                     "checkable": False,
                     "editable": True,
                     "user_type": "frame_range",
@@ -31,25 +34,30 @@ class Window(QtWidgets.QMainWindow):
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"}
 
     SHOT = {"name": "shot",
+
+
                     "checkable": True,
+            "checkState": QtCore.Qt.Unchecked,
                     "editable": False,
                     "user_type": "shot",
                     "setDragEnabled": True,
                     "setDropEnabled": False,
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"}
 
+
     GROUP = {"name": "group",
+
                    "checkable": True,
+                    "checkState": QtCore.Qt.Unchecked,
                    "editable": True,
                    "user_type": "group",
                     "setDragEnabled": True,
                     "setDropEnabled": True,
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"}
-
     def __init__(self, parent = None):
         super(Window, self).__init__()
         menubar = self.menuBar()
-        view_menu = menubar.addMenu("View")
+        #view_menu = menubar.addMenu("View")
         self.model = StandardItemModel()
         self.model.setColumnCount(2)
         self.model.setHorizontalHeaderLabels(['shot', 'frame range'])
@@ -60,7 +68,8 @@ class Window(QtWidgets.QMainWindow):
         self.populate()
 
         self.delete_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+d'), self)
-        self.delete_shortcut.activated.connect(self.delete)
+        self.delete_shortcut.activated.connect(lambda: (self.delete(self.view.selectedIndexes()  )))
+
         self.group_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+g'), self)
         self.group_shortcut.activated.connect(self.group_shots)
         self.iterate_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+i'), self)
@@ -78,7 +87,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.collapsed.connect(self.view_expand_collapse_changed)
 
         self.view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        self.view.customContextMenuRequested.connect(self.open_menu)
+        #self.view.customContextMenuRequested.connect(self.open_menu)
 
         self.model.setItemPrototype(StandardItem())
         self.model.invisibleRootItem().setDropEnabled(False)
@@ -102,9 +111,6 @@ class Window(QtWidgets.QMainWindow):
             self.isolate_action = QtWidgets.QAction("isolate shots [f]", self)
             #self.isolate_action.triggered.connect(self.isolate_selection)
 
-            self.copy_shots_action = QtWidgets.QAction("copy shots [ctrl+c]", self)
-            #self.copy_shots_action.triggered.connect(self.copy_shots)
-
             self.paste_shots_action = QtWidgets.QAction("paste shots [ctrl+v]", self)
             #self.paste_shots_action.triggered.connect(self.paste_shots)
 
@@ -114,11 +120,14 @@ class Window(QtWidgets.QMainWindow):
             menu.addAction(self.frame_range_range_action)
             menu.addAction(self.toggle_shot_action)
             menu.addAction(self.isolate_action)
-            menu.addAction(self.copy_shots_action)
+            #menu.addAction(self.copy_shots_action)
             menu.addAction(self.paste_shots_action)
 
 
         elif item.user_type == "shot":
+            self.copy_shots_action = QtWidgets.QAction("copy shots [ctrl+c]", self)
+            self.copy_shots_action.triggered.connect(lambda: (self.copy_shot(self.view.selectedIndexes())))
+
             self.toggle_lock_action = QtWidgets.QAction("disable / enable [d]", self)
 
             self.isolate_action_render = QtWidgets.QAction("isolate render [f]", self)
@@ -139,6 +148,7 @@ class Window(QtWidgets.QMainWindow):
             self.resolve_render_frame_range_action= QtWidgets.QAction("complete resolve (SLOW)", self)
             #self.resolve_render_frame_range_action.triggered.connect(lambda: (self.resolve(False)))
 
+            menu.addAction(self.copy_shots_action)
             menu.addAction(self.toggle_lock_action)
             menu.addAction(self.lock_all_action)
             menu.addAction(self.unlock_all_action)
@@ -179,8 +189,9 @@ class Window(QtWidgets.QMainWindow):
         self.loop_get_active_render_nodes(item, render_node_list)
         return render_node_list
 
-    def delete(self):
-        indexes = self.view.selectedIndexes()
+    def delete(self, indexes):
+        logger.info("Running Delete")
+        logger.info("Indexes: {0}".format(indexes))
         row_list = []
         index_list = []
         for index in indexes:
@@ -238,7 +249,9 @@ class Window(QtWidgets.QMainWindow):
 
     def generic_item(self, *args, **kwargs):
         #item = QtGui.QStandardItem(kwargs["name"])
-        item = StandardItem(kwargs["name"])
+        item = QtGui.QStandardItem(kwargs["name"])
+        item.setData (kwargs["user_type"], QtCore.Qt.UserRole +1)
+        item.setData (kwargs["user_icon"], QtCore.Qt.UserRole +2)
         item.setCheckable(kwargs["checkable"])
         item.setEditable(kwargs["editable"])
         item.setDragEnabled(kwargs["setDragEnabled"])
@@ -246,6 +259,10 @@ class Window(QtWidgets.QMainWindow):
         item.user_type = kwargs["user_type"]
         item.setIcon(QtGui.QIcon(kwargs["user_icon"]))
         item.user_icon = kwargs["user_icon"]
+
+        if item.user_type != "frame_range":
+            item.setCheckState(kwargs["checkState"])
+
         return item
 
     def on_item_changed(self, item, role):
@@ -310,21 +327,25 @@ class Window(QtWidgets.QMainWindow):
         allSame = all(x == child_list[0] for x in child_list)
         return (allSame, child_list)
 
-
+    def construct_dict_from_node(self, node):
+        nodeDict = {"name": node.text(),
+                    "checkState":node.checkState(),
+                    "checkable": node.isCheckable(),
+                    "editable": node.isEditable(),
+                    "user_type": node.data(QtCore.Qt.UserRole+1),
+                    "setDragEnabled": node.isDragEnabled(),
+                    "setDropEnabled": node.isDropEnabled(),
+                    "user_icon": node.data(QtCore.Qt.UserRole+2)}
+        return nodeDict
 
     def iterItems(self, root):
         def recurse(root, dataTree):
             for row in range(root.rowCount()):
                 node = root.child(row, 0)
-                nodeDict = { "name": node.text(),
-                    "checkable": node.isCheckable(),
-                    "editable": node.isEditable(),
-                    "user_type": node.user_type,
-                    "setDragEnabled": node.isDragEnabled(),
-                    "setDropEnabled": node.isDropEnabled(),
-                    "user_icon":node.user_icon}
-
-                childNode = dataTree.add_node(nodeDict)
+                frame_range_node = root.child(row, 1)
+                render_node_dict = self.construct_dict_from_node(node)
+                frame_range_node_dict = self.construct_dict_from_node(frame_range_node)
+                childNode = dataTree.add_node((render_node_dict, frame_range_node_dict))
                 item = root.child(row, 0)
                 if item.hasChildren():
                     recurse(item, childNode)
@@ -334,15 +355,15 @@ class Window(QtWidgets.QMainWindow):
         return dataTree
 
 
-
-
     def iterateDataTreeCreateStandardItems(self, a, item):
         for i in a.nodes:
             print ( "iterating data tree create standard item" )
-            childItem = self.generic_item(**i.val)
-            item.appendRow([childItem])
+            print (i.val[0])
+            render_node = self.generic_item(**i.val[0])
+            frame_range_node = self.generic_item(**i.val[1])
+            item.appendRow([render_node,frame_range_node])
             if len(i.nodes) > 0:
-                self.iterateDataTreeCreateStandardItems(i, childItem)
+                self.iterateDataTreeCreateStandardItems(i, render_node)
 
     def return_children_in_list(self, item):
         child_list = []
@@ -352,32 +373,37 @@ class Window(QtWidgets.QMainWindow):
 
     def item_get_attrs(self, item):
         attr_dict = {"name": item.text(),
-                       "checkable": item.isCheckable(),
-                       "editable": item.isEditable(),
-                       "user_type": item.user_type,
-                       "setDragEnabled": item.isDragEnabled(),
-                       "setDropEnabled": item.isDropEnabled(),
-                        "user_icon":item.user_icon}
+                        "checkable": item.isCheckable(),
+                        "checkState": item.checkState(),
+                        "editable": item.isEditable(),
+                        "user_type": item.user_type,
+                        "setDragEnabled": item.isDragEnabled(),
+                        "setDropEnabled": item.isDropEnabled(),
+                        "user_icon": item.user_icon}
         return attr_dict
 
     def copy_shot(self, indexes):
-        self.out_s = io.BytesIO()
+        logger.info("Shot Copied")
+        index = indexes[0]
 
-        for index in indexes:
-            item = (self.model.itemFromIndex(index))
-            self.copyDataTree = self.iterItems(item)
-            print (self.copyDataTree)
-            self.serialized = pickle.dump(self.copyDataTree, self.out_s)
+        item = (self.model.itemFromIndex(index))
+        print ("Item Data: {0}".format(item.data(QtCore.Qt.UserRole)))
+        print ("Item Data: {0}".format(item.data(QtCore.Qt.UserRole+2)))
+        logger.info("Icon: {0}".format(item.icon()))
+        self.copyDataTree = self.iterItems(item)
+        logger.info("dataTree: {0}".format(self.copyDataTree))
 
     def paste_shot(self, indexes):
-        self.in_s = io.BytesIO(self.out_s.getvalue())
 
-        print ( self.copyDataTree, type(self.copyDataTree))
-        print (self.serialized)
         for index in indexes:
+            if index.column()  == 1:
+                continue
             item = (self.model.itemFromIndex(index))
-            copyData = pickle.load(self.in_s)
-            self.iterateDataTreeCreateStandardItems(copyData, item)
+            logger.info("Item: {0}".format(item))
+            for row in reversed(range(item.rowCount())):
+                logger.info("Item Child: {0}".format(item.child(row, 0)) )
+                self.delete([item.child(row, 0).index()])
+            self.iterateDataTreeCreateStandardItems(self.copyDataTree, item)
 
     def loop_iterate_up(self, item, items_list):
         if item == None:
@@ -433,8 +459,8 @@ class StandardItem(QtGui.QStandardItem):
     _user_typeRole = QtCore.Qt.UserRole + 2
     def __init__(self, parent=None):
         super(StandardItem, self).__init__(parent)
-        self.user_type = 'shot'
-        self.user_icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"
+        self.user_type = "shot"
+        self.user_icon ="path to icon"
 
     def clone(self):
         return StandardItem()
@@ -446,6 +472,7 @@ class StandardItem(QtGui.QStandardItem):
     @user_type.setter
     def user_type(self, value):
         self.setData(value, self._user_typeRole)
+
 
 class NonBinTree:
 
