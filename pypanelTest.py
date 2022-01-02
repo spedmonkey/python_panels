@@ -12,29 +12,29 @@ class awesome(object):
 
 class Window(QtWidgets.QMainWindow):
 
-    RENDER_NODE = {"name": "render node",
-                   "checkable": True,
-                   "editable": False,
-                   "user_type": "render_node",
-                   "setDragEnabled":True,
+    RENDER_NODE = { "name": "render node",
+                    "checkable": True,
+                    "editable": False,
+                    "user_type": "render_node",
+                    "setDragEnabled":True,
                     "setDropEnabled":False,
-                   "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"}
+                    "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"}
 
-    FRAME_RANGE = {"name": "frame_range",
-                   "checkable": False,
-                   "editable": True,
-                   "user_type": "frame_range",
+    FRAME_RANGE = { "name": "frame_range",
+                    "checkable": False,
+                    "editable": True,
+                    "user_type": "frame_range",
                     "setDragEnabled": True,
                     "setDropEnabled": False,
-                   "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"}
+                    "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"}
 
     SHOT = {"name": "shot",
-                   "checkable": True,
-                   "editable": False,
-                   "user_type": "shot",
+                    "checkable": True,
+                    "editable": False,
+                    "user_type": "shot",
                     "setDragEnabled": True,
                     "setDropEnabled": False,
-            "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"}
+                    "icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"}
 
     GROUP = {"name": "group",
                    "checkable": True,
@@ -69,20 +69,81 @@ class Window(QtWidgets.QMainWindow):
         self.copy_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+c'), self)
         self.copy_shortcut.activated.connect(lambda: (self.copy_shot(self.view.selectedIndexes())))
         self.paste_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+v'), self)
-        self.paste_shortcut.activated.connect(lambda: (self.paste_shot(self.view.selectedIndexes())))
+        self.paste_shortcut.activated.connect(self.paste_shot)
 
         self.model.itemDataChanged.connect(self.on_item_changed)
         self.view.expanded.connect(self.view_expand_collapse_changed)
         self.view.collapsed.connect(self.view_expand_collapse_changed)
 
-        self.model.setItemPrototype(StandardItem())
+        self.view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
+        self.view.customContextMenuRequested.connect(self.open_menu)
 
+        self.model.setItemPrototype(StandardItem())
+        self.model.invisibleRootItem().setDropEnabled(False)
     #def check(self):
     #    index = self.view.selectedIndexes()[0]
     #    item = self.model.itemFromIndex(index)
     #    item.setCheckState(QtCore.Qt.Checked)
 
+    def open_menu(self, position):
+        index = self.view.selectedIndexes()[0]
+        item = self.model.itemFromIndex(index)
 
+
+        menu = QtWidgets.QMenu()
+
+
+        if item.user_type == "render_node":
+            self.toggle_shot_action = QtWidgets.QAction("disable / enable [d]", self)
+            #self.toggle_shot_action.triggered.connect(self.toggle_checkable)
+
+            self.isolate_action = QtWidgets.QAction("isolate shots [f]", self)
+            #self.isolate_action.triggered.connect(self.isolate_selection)
+
+            self.copy_shots_action = QtWidgets.QAction("copy shots [ctrl+c]", self)
+            #self.copy_shots_action.triggered.connect(self.copy_shots)
+
+            self.paste_shots_action = QtWidgets.QAction("paste shots [ctrl+v]", self)
+            #self.paste_shots_action.triggered.connect(self.paste_shots)
+
+            self.frame_range_range_action = QtWidgets.QAction("match children range [a]", self)
+            #self.frame_range_range_action.triggered.connect(self.change_frame_range)
+
+            menu.addAction(self.frame_range_range_action)
+            menu.addAction(self.toggle_shot_action)
+            menu.addAction(self.isolate_action)
+            menu.addAction(self.copy_shots_action)
+            menu.addAction(self.paste_shots_action)
+
+
+        elif item.user_type == "shot":
+            self.toggle_lock_action = QtWidgets.QAction("disable / enable [d]", self)
+
+            self.isolate_action_render = QtWidgets.QAction("isolate render [f]", self)
+            #self.isolate_action_render.triggered.connect(self.isolate_selection)
+
+            logger.debug("set editable false")
+            #self.toggle_lock_action.triggered.connect(self.toggle_checkable)
+
+            self.lock_all_action = QtWidgets.QAction("disable unchecked", self)
+            #self.lock_all_action.triggered.connect(self.lock_all_unchecked_passes)
+
+            self.unlock_all_action = QtWidgets.QAction("enable all", self)
+            #self.unlock_all_action.triggered.connect(self.unlock_all_unchecked_pass es)
+
+            self.resolve_render_nodes_action= QtWidgets.QAction("resolve render nodes", self)
+            #self.resolve_render_nodes_action.triggered.connect(lambda: (self.resolve(True)))
+
+            self.resolve_render_frame_range_action= QtWidgets.QAction("complete resolve (SLOW)", self)
+            #self.resolve_render_frame_range_action.triggered.connect(lambda: (self.resolve(False)))
+
+            menu.addAction(self.toggle_lock_action)
+            menu.addAction(self.lock_all_action)
+            menu.addAction(self.unlock_all_action)
+            menu.addAction(self.resolve_render_nodes_action)
+            menu.addAction(self.resolve_render_frame_range_action)
+
+        menu.exec_(self.view.viewport().mapToGlobal(position))
 
     def refresh(self):
         indexes = self.view.selectedIndexes()
@@ -185,10 +246,8 @@ class Window(QtWidgets.QMainWindow):
         return item
 
     def on_item_changed(self, item, role):
-        #print (item, role)
-        #if Qt.DisplayRole in roles:
-        #    print(topLeft.data())
-        logger.debug("Item Changed")
+
+        logger.info("Item Changed")
         if role == 10:
             checkState = item.checkState()
             self.iterate([item.index()], "check")
@@ -234,35 +293,6 @@ class Window(QtWidgets.QMainWindow):
             checkState = parent.child(row, 0).checkState()
             self.loop_iterate(item, text, changeType, checkState)
 
-    def loop_iterate_up(self, item, items_list):
-        if item == None:
-            print (items_list)
-            for item in items_list:
-                try:
-                    item.setCheckState(QtCore.Qt.Checked)
-                except:
-                    pass
-        else:
-            items_list.append(item)
-            self.loop_iterate_up(item.parent(), items_list)
-
-    def iterate_up(self, index):
-        items_list = []
-        item = self.model.itemFromIndex(index)
-        parent = item.parent()
-        self.loop_iterate_up(parent, items_list)
-
-    def iterate_down(self, item, checkState):
-        if item.parent() is None:
-            print ("END")
-        else:
-            allSame, child_list = self.all_same(item)
-            if allSame and child_list[0] == QtCore.Qt.Unchecked:
-                item.parent().setCheckState(QtCore.Qt.Unchecked)
-                self.iterate_down(item.parent(), checkState)
-            else:
-                item.parent().setCheckState(QtCore.Qt.Checked)
-                self.iterate_down(item.parent(), checkState)
 
     @staticmethod
     def all_same(item):
@@ -278,60 +308,63 @@ class Window(QtWidgets.QMainWindow):
         return (allSame, child_list)
 
     def copy_shot(self, indexes):
-        node_list = []
-        for index in indexes:
-            item = self.model.itemFromIndex(index)
-            if item.user_type == "shot":
-                self.loop_copy_shot(item, node_list)
+        root = self.model.invisibleRootItem()
+        dataTree = self.iterItems(root)
+        print (dataTree)
+        self.iterateDataTreeCreateStandardItems(dataTree, root)
 
-    def loop_copy_shot(self, item, node_list):
-        node_list_child_attr = []
-        if item.hasChildren() == True:
-            for row in range(item.rowCount()):
-                child = item.child(row, 0)
-                child_frame_range = item.child(row, 1)
-                child_dict = self.item_get_attrs(child)
-                child_frame_range_dict = self.item_get_attrs(child_frame_range)
-                node_list_child_attr.append((child_dict, child_frame_range_dict))
-                self.loop_copy_shot(child, node_list_child_attr)
-            node_list.append(node_list_child_attr)
+    def iterItems(self, root):
+        def recurse(root, dataTree):
+            for row in range(root.rowCount()):
+                node = root.child(row, 0)
+                nodeDict = { "name": node.text(),
+                    "checkable": node.isCheckable(),
+                    "editable": node.isEditable(),
+                    "user_type": node.user_type,
+                    "setDragEnabled": node.isDragEnabled(),
+                    "setDropEnabled": node.isDropEnabled(),
+                    "icon":node.icon()}
 
-        else:
-            self.node_list =  node_list
+                childNode = dataTree.add_node( nodeDict)
+                item = root.child(row, 0)
+                if item.hasChildren():
+                    recurse(item, childNode)
+            return dataTree
+        dataTree = NonBinTree(root.text())
+        dataTree = recurse(root, dataTree)
+        return dataTree
+
+    def iterateDataTreeCreateStandardItems(self, a, item):
+        for i in a.nodes:
+            childItem = self.generic_item(** i.val)
+            item.appendRow([childItem])
+            print(i.val)
+            if len(i.nodes) > 0:
+                self.iterateDataTreeCreateStandardItems(i, childItem)
+
+    def return_children_in_list(self, item):
+        child_list = []
+        for row in range(item.rowCount()):
+            child_list.append((item.child(row, 0), item.child(row,1)))
+        return child_list
 
     def item_get_attrs(self, item):
-        if item.user_type == "render_node":
-            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"
-        elif item.user_type == "frame_range":
-            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"
-        elif item.user_type == "shot":
-            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"
-        elif item.user_type == "group":
-            icon = "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"
         attr_dict = {"name": item.text(),
                        "checkable": item.isCheckable(),
                        "editable": item.isEditable(),
                        "user_type": item.user_type,
                        "setDragEnabled": item.isDragEnabled(),
                        "setDropEnabled": item.isDropEnabled(),
-                       "icon": icon}
+                       "icon": item.icon()}
         return attr_dict
 
-    def paste_shot(self, indexes):
-        for i in  (self.node_list):
-            print (i)
-        for index in indexes:
-            item = self.model.itemFromIndex(index)
-            for row in reversed(range(item.rowCount())):
-                print (row)
-                item.removeRow(row)
-        for index in indexes:
-            item = self.model.itemFromIndex(index)
-            for node_tuple in self.node_list:
-                node =self.generic_item(**node_tuple[0])
-                frame_range = self.generic_item(**node_tuple[1])
-                print (node, frame_range)
-                item.appendRow([node, frame_range])
+    def paste_shot(self, *args):
+        print (args)
+        if len(args) == 0:
+            args = self.node_list
+        for index, value in enumerate(args):
+            self.paste_shot (value)
+        #logger.info(self.node_list)
 
 
 
@@ -369,3 +402,16 @@ class StandardItem(QtGui.QStandardItem):
     @user_type.setter
     def user_type(self, value):
         self.setData(value, self._user_typeRole)
+
+class NonBinTree:
+
+    def __init__(self, val):
+        self.val = val
+        self.nodes = []
+
+    def add_node(self, val):
+        self.nodes.append(NonBinTree(val))
+        return self.nodes[-1]
+
+    def __repr__(self):
+        return f"NonBinTree({self.val}): {self.nodes}"
