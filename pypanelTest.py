@@ -34,24 +34,23 @@ class Window(QtWidgets.QMainWindow):
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"}
 
     SHOT = {"name": "shot",
-                    "checkable": True,
-                    "checkState": QtCore.Qt.Unchecked,
-                    "editable": False,
-                    "user_type": "shot",
-                    "setDragEnabled": True,
-                    "setDropEnabled": False,
-                    "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"}
+            "checkable": True,
+            "checkState": QtCore.Qt.Unchecked,
+            "editable": False,
+            "user_type": "shot",
+            "setDragEnabled": True,
+            "setDropEnabled": False,
+            "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon3.png"}
 
 
     GROUP = {"name": "group",
-
-                   "checkable": True,
-                    "checkState": QtCore.Qt.Unchecked,
-                   "editable": True,
-                   "user_type": "group",
-                    "setDragEnabled": True,
-                    "setDropEnabled": True,
-                    "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"}
+             "checkable": True,
+             "checkState": QtCore.Qt.Unchecked,
+             "editable": True,
+             "user_type": "group",
+             "setDragEnabled": True,
+             "setDropEnabled": True,
+             "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"}
 
     def __init__(self, parent = None):
         super(Window, self).__init__()
@@ -64,103 +63,76 @@ class Window(QtWidgets.QMainWindow):
         self.view = QtWidgets.QTreeView()
         self.view.setModel(self.model)
         self.setCentralWidget(self.view)
-        self.populate()
+
+        self.model.invisibleRootItem().setDropEnabled(False)
+
+        self.view.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
+        self.view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
         self.delete_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+d'), self)
         self.delete_shortcut.activated.connect(lambda: (self.delete(self.view.selectedIndexes()  )))
-
         self.group_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+g'), self)
         self.group_shortcut.activated.connect(self.group_shots)
         self.iterate_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+i'), self)
         self.iterate_shortcut.activated.connect(lambda: (self.iterate(self.view.selectedIndexes(),"text")))
         self.refresh_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+r'), self)
         self.refresh_shortcut.activated.connect(self.refresh)
-
         self.copy_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+c'), self)
         self.copy_shortcut.activated.connect(lambda: (self.copy_shot(self.view.selectedIndexes())))
         self.paste_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+v'), self)
         self.paste_shortcut.activated.connect(lambda: (self.paste_shot(self.view.selectedIndexes())))
-
         self.save_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+shift+s'), self)
         self.save_shortcut.activated.connect(self.save)
-
         self.load_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+l'), self)
         self.load_shortcut.activated.connect(self.load)
+        self.render_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+shift+r'), self)
+        self.render_shortcut.activated.connect(self.render)
 
         self.model.itemDataChanged.connect(self.on_item_changed)
         self.view.expanded.connect(self.view_expand_collapse_changed)
         self.view.collapsed.connect(self.view_expand_collapse_changed)
 
         self.view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
-        #self.view.customContextMenuRequested.connect(self.open_menu)
+        self.view.customContextMenuRequested.connect(self.open_menu)
 
         self.model.setItemPrototype(QtGui.QStandardItem())
-        self.model.invisibleRootItem().setDropEnabled(False)
-    #def check(self):
-    #    index = self.view.selectedIndexes()[0]
-    #    item = self.model.itemFromIndex(index)
-    #    item.setCheckState(QtCore.Qt.Checked)
-
+        try:
+            self.load()
+        except:
+            self.populate()
     def open_menu(self, position):
         index = self.view.selectedIndexes()[0]
         item = self.model.itemFromIndex(index)
-
-
         menu = QtWidgets.QMenu()
+        #if item.data(QtCore.Qt.UserRole+1) == "render_node":
 
-
-        if item.user_type == "render_node":
-            self.toggle_shot_action = QtWidgets.QAction("disable / enable [d]", self)
-            #self.toggle_shot_action.triggered.connect(self.toggle_checkable)
-
-            self.isolate_action = QtWidgets.QAction("isolate shots [f]", self)
-            #self.isolate_action.triggered.connect(self.isolate_selection)
-
-            self.paste_shots_action = QtWidgets.QAction("paste shots [ctrl+v]", self)
-            #self.paste_shots_action.triggered.connect(self.paste_shots)
-
-            self.frame_range_range_action = QtWidgets.QAction("match children range [a]", self)
-            #self.frame_range_range_action.triggered.connect(self.change_frame_range)
-
-            menu.addAction(self.frame_range_range_action)
-            menu.addAction(self.toggle_shot_action)
-            menu.addAction(self.isolate_action)
-            #menu.addAction(self.copy_shots_action)
-            menu.addAction(self.paste_shots_action)
-
-
-        elif item.user_type == "shot":
+        self.delete_action = QtWidgets.QAction("delete [ctrl+d]", self)
+        self.delete_action.triggered.connect(lambda: (self.delete(self.view.selectedIndexes())))
+        menu.addAction((self.delete_action))
+        if item.data(QtCore.Qt.UserRole+1) == "shot":
             self.copy_shots_action = QtWidgets.QAction("copy shots [ctrl+c]", self)
             self.copy_shots_action.triggered.connect(lambda: (self.copy_shot(self.view.selectedIndexes())))
+            menu.addAction((self.copy_shots_action))
 
-            self.toggle_lock_action = QtWidgets.QAction("disable / enable [d]", self)
+            self.paste_shots_action = QtWidgets.QAction("paste shots [ctrl+v]", self)
+            self.paste_shots_action.triggered.connect(lambda: (self.paste_shot(self.view.selectedIndexes())))
+            menu.addAction((self.paste_shots_action))
 
-            self.isolate_action_render = QtWidgets.QAction("isolate render [f]", self)
-            #self.isolate_action_render.triggered.connect(self.isolate_selection)
+            self.refresh_action = QtWidgets.QAction("refresh render nodes [ctrl+r]", self)
+            self.refresh_action.triggered.connect(lambda: (self.refresh(self.view.selectedIndexes())))
+            menu.addAction(self.refresh_action)
 
-            logger.debug("set editable false")
-            #self.toggle_lock_action.triggered.connect(self.toggle_checkable)
-
-            self.lock_all_action = QtWidgets.QAction("disable unchecked", self)
-            #self.lock_all_action.triggered.connect(self.lock_all_unchecked_passes)
-
-            self.unlock_all_action = QtWidgets.QAction("enable all", self)
-            #self.unlock_all_action.triggered.connect(self.unlock_all_unchecked_pass es)
-
-            self.resolve_render_nodes_action= QtWidgets.QAction("resolve render nodes", self)
+            #self.resolve_render_nodes_action= QtWidgets.QAction("resolve render nodes", self)
             #self.resolve_render_nodes_action.triggered.connect(lambda: (self.resolve(True)))
 
-            self.resolve_render_frame_range_action= QtWidgets.QAction("complete resolve (SLOW)", self)
+            #self.resolve_render_frame_range_action= QtWidgets.QAction("complete resolve (SLOW)", self)
             #self.resolve_render_frame_range_action.triggered.connect(lambda: (self.resolve(False)))
 
-            menu.addAction(self.copy_shots_action)
-            menu.addAction(self.toggle_lock_action)
-            menu.addAction(self.lock_all_action)
-            menu.addAction(self.unlock_all_action)
-            menu.addAction(self.resolve_render_nodes_action)
-            menu.addAction(self.resolve_render_frame_range_action)
+            #menu.addAction(self.resolve_render_nodes_action)
+            #menu.addAction(self.resolve_render_frame_range_action)
 
         menu.exec_(self.view.viewport().mapToGlobal(position))
+
 
     def refresh(self):
         indexes = self.view.selectedIndexes()
@@ -168,7 +140,7 @@ class Window(QtWidgets.QMainWindow):
 
         for index in indexes:
             item = self.model.itemFromIndex(index)
-            if item.user_type != "shot":
+            if item.data(QtCore.Qt.UserRole+1) != "shot":
                 continue
             render_node_list = self.get_active_render_nodes(item)
 
@@ -195,7 +167,6 @@ class Window(QtWidgets.QMainWindow):
 
     def delete(self, indexes):
         logger.info("Running Delete")
-        logger.info("Indexes: {0}".format(indexes))
         row_list = []
         index_list = []
         for index in indexes:
@@ -220,7 +191,7 @@ class Window(QtWidgets.QMainWindow):
                 group01 = self.generic_item(**self.GROUP)
                 group_frame_range = self.generic_item(**self.FRAME_RANGE)
                 selected_item = self.model.itemFromIndex(index)
-                if selected_item.user_type != "render_node":
+                if selected_item.data(QtCore.Qt.UserRole +1) != "render_node":
                     selected_item.appendRow([group01, group_frame_range])
                     self.view.setExpanded(index, True)
                 else:
@@ -235,9 +206,9 @@ class Window(QtWidgets.QMainWindow):
     def populate(self):
         render_nodes = self.get_render_nodes()
         for i in range(10):
-            self.SHOT['number'] = str(i)
+            self.SHOT['name'] = "shot %s0"%i
             test = self.generic_item(**self.SHOT)
-            self.FRAME_RANGE['number'] = str(i)
+            self.FRAME_RANGE['name'] = "all"
             test2 = self.generic_item(**self.FRAME_RANGE)
             self.model.appendRow([test, test2])
             for x in render_nodes:
@@ -248,8 +219,7 @@ class Window(QtWidgets.QMainWindow):
                 new_item2 =  self.generic_item(**self.FRAME_RANGE)
                 test.appendRow([new_item, new_item2])
 
-        self.view.setDragDropMode(QtWidgets.QAbstractItemView.InternalMove)
-        self.view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
+
 
     def generic_item(self, *args, **kwargs):
         item = QtGui.QStandardItem(kwargs["name"])
@@ -259,11 +229,10 @@ class Window(QtWidgets.QMainWindow):
         item.setEditable(kwargs["editable"])
         item.setDragEnabled(kwargs["setDragEnabled"])
         item.setDropEnabled(kwargs["setDropEnabled"])
-        item.user_type = kwargs["user_type"]
         item.setIcon(QtGui.QIcon(kwargs["user_icon"]))
         item.user_icon = kwargs["user_icon"]
 
-        if item.user_type != "frame_range":
+        if item.data(QtCore.Qt.UserRole +1) != "frame_range":
             item.setCheckState(kwargs["checkState"])
 
         return item
@@ -381,22 +350,23 @@ class Window(QtWidgets.QMainWindow):
 
     def item_get_attrs(self, item):
         attr_dict = {"name": item.text(),
-                        "checkable": item.isCheckable(),
-                        "checkState": item.checkState(),
-                        "editable": item.isEditable(),
-                        "user_type": item.user_type,
-                        "setDragEnabled": item.isDragEnabled(),
-                        "setDropEnabled": item.isDropEnabled(),
-                        "user_icon": item.user_icon}
+                     "checkable": item.isCheckable(),
+                     "checkState": item.checkState(),
+                     "editable": item.isEditable(),
+                     "user_type": item.user_type,
+                     "setDragEnabled": item.isDragEnabled(),
+                     "setDropEnabled": item.isDropEnabled(),
+                     "user_icon": item.user_icon}
         return attr_dict
 
     def copy_shot(self, indexes):
         logger.info("Shot Copied")
         index = indexes[0]
         item = (self.model.itemFromIndex(index))
-        logger.info("Icon: {0}".format(item.icon()))
-        self.copyDataTree = self.iterItems(item)
-        logger.info("dataTree: {0}".format(self.copyDataTree))
+        if item.data(QtCore.Qt.UserRole +1) == "shot":
+            self.copyDataTree = self.iterItems(item)
+        else:
+            logger.info("Copy function only available for shot nodes")
 
 
     def paste_shot(self, indexes):
@@ -407,9 +377,7 @@ class Window(QtWidgets.QMainWindow):
             if index.column()  == 1:
                 continue
             item = (self.model.itemFromIndex(index))
-            logger.info("Item: {0}".format(item))
             for row in reversed(range(item.rowCount())):
-                logger.info("Item Child: {0}".format(item.child(row, 0)) )
                 self.delete([item.child(row, 0).index()])
             self.iterateDataTreeCreateStandardItems(self.copyDataTree, item)
             parent = item.parent()
@@ -474,9 +442,28 @@ class Window(QtWidgets.QMainWindow):
 
     def load_tree(self, dataTree, item):
         for row in reversed(range(item.rowCount())):
-            logger.info("Item Child: {0}".format(item.child(row, 0)))
             self.delete([item.child(row, 0).index()])
         self.iterateDataTreeCreateStandardItems(dataTree, item)
+
+    def render(self):
+        def render_recursive(root, shot_node):
+            for row in range(root.rowCount()):
+                node = root.child(row, 0)
+
+                user_type = node.data(QtCore.Qt.UserRole +1)
+                if node.checkState() == QtCore.Qt.Unchecked:
+                    continue
+                if user_type == "render_node":
+                    frame_range_node = root.child(row, 1)
+                    logger.info("{0} {1} {2}".format(shot_node.text(), node.text(), frame_range_node.text()))
+                if user_type =="shot":
+                    shot_node = node
+                if node.hasChildren() == True:
+                    render_recursive(node, shot_node)
+        root = self.model.invisibleRootItem()
+        render_recursive(root, None)
+
+
 
 class StandardItemModel(QtGui.QStandardItemModel):
     itemDataChanged = QtCore.Signal(object, object)
