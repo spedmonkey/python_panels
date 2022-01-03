@@ -1,8 +1,10 @@
 from PySide2 import QtWidgets, QtGui, QtCore
 import logging
 import os
+import hou
+import base64
 import pickle
-import io
+import codecs
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 logger.setLevel(os.environ.get("LOGLEVEL", "INFO"))
@@ -15,7 +17,6 @@ class awesome(object):
 class Window(QtWidgets.QMainWindow):
 
     RENDER_NODE = { "name": "render node",
-
                     "checkable": True,
                     "checkState": QtCore.Qt.Unchecked,
                     "editable": False,
@@ -25,7 +26,6 @@ class Window(QtWidgets.QMainWindow):
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon1.png"}
 
     FRAME_RANGE = { "name": "frame_range",
-
                     "checkable": False,
                     "editable": True,
                     "user_type": "frame_range",
@@ -34,10 +34,8 @@ class Window(QtWidgets.QMainWindow):
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon2.png"}
 
     SHOT = {"name": "shot",
-
-
                     "checkable": True,
-            "checkState": QtCore.Qt.Unchecked,
+                    "checkState": QtCore.Qt.Unchecked,
                     "editable": False,
                     "user_type": "shot",
                     "setDragEnabled": True,
@@ -54,6 +52,7 @@ class Window(QtWidgets.QMainWindow):
                     "setDragEnabled": True,
                     "setDropEnabled": True,
                     "user_icon": "C:/Users/cruss/OneDrive/Documents/houdini19.0/python_panels/icon4.png"}
+
     def __init__(self, parent = None):
         super(Window, self).__init__()
         menubar = self.menuBar()
@@ -82,6 +81,12 @@ class Window(QtWidgets.QMainWindow):
         self.paste_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+v'), self)
         self.paste_shortcut.activated.connect(lambda: (self.paste_shot(self.view.selectedIndexes())))
 
+        self.save_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+shift+s'), self)
+        self.save_shortcut.activated.connect(self.save)
+
+        self.load_shortcut = QtWidgets.QShortcut(QtGui.QKeySequence('ctrl+l'), self)
+        self.load_shortcut.activated.connect(self.load)
+
         self.model.itemDataChanged.connect(self.on_item_changed)
         self.view.expanded.connect(self.view_expand_collapse_changed)
         self.view.collapsed.connect(self.view_expand_collapse_changed)
@@ -89,7 +94,7 @@ class Window(QtWidgets.QMainWindow):
         self.view.setContextMenuPolicy(QtCore.Qt.CustomContextMenu)
         #self.view.customContextMenuRequested.connect(self.open_menu)
 
-        self.model.setItemPrototype(StandardItem())
+        self.model.setItemPrototype(QtGui.QStandardItem())
         self.model.invisibleRootItem().setDropEnabled(False)
     #def check(self):
     #    index = self.view.selectedIndexes()[0]
@@ -182,7 +187,6 @@ class Window(QtWidgets.QMainWindow):
                 self.loop_get_active_render_nodes(child, render_node_list)
             else:
                 render_node_list.append(item.child(row, 0).text())
-            #render_node_list.append(item.child(row, 0).text())
 
     def get_active_render_nodes(self, item):
         render_node_list = []
@@ -238,8 +242,8 @@ class Window(QtWidgets.QMainWindow):
             self.model.appendRow([test, test2])
             for x in render_nodes:
                 self.RENDER_NODE['name'] = str(x)
-                self.RENDER_NODE['number'] =str(x)
-                self.FRAME_RANGE['number']=str(x)
+                self.RENDER_NODE['number'] = str(x)
+                self.FRAME_RANGE['number'] = str(x)
                 new_item =  self.generic_item(**self.RENDER_NODE)
                 new_item2 =  self.generic_item(**self.FRAME_RANGE)
                 test.appendRow([new_item, new_item2])
@@ -248,7 +252,6 @@ class Window(QtWidgets.QMainWindow):
         self.view.setSelectionMode(QtWidgets.QAbstractItemView.ExtendedSelection)
 
     def generic_item(self, *args, **kwargs):
-        #item = QtGui.QStandardItem(kwargs["name"])
         item = QtGui.QStandardItem(kwargs["name"])
         item.setData (kwargs["user_type"], QtCore.Qt.UserRole +1)
         item.setData (kwargs["user_icon"], QtCore.Qt.UserRole +2)
@@ -350,15 +353,20 @@ class Window(QtWidgets.QMainWindow):
                 if item.hasChildren():
                     recurse(item, childNode)
             return dataTree
-        dataTree = NonBinTree(root.text())
+        parent = root.parent()
+        if parent == None:
+            parent = self.model.invisibleRootItem()
+        root_dict = self.construct_dict_from_node(root)
+        frame_range_node = parent.child(0, 1)
+        root_frame_range_dict =  self.construct_dict_from_node(frame_range_node)
+        dataTree = NonBinTree((root_dict, root_frame_range_dict))
         dataTree = recurse(root, dataTree)
         return dataTree
 
 
     def iterateDataTreeCreateStandardItems(self, a, item):
         for i in a.nodes:
-            print ( "iterating data tree create standard item" )
-            print (i.val[0])
+            logger.debug ( "iterating data tree create standard item" )
             render_node = self.generic_item(**i.val[0])
             frame_range_node = self.generic_item(**i.val[1])
             item.appendRow([render_node,frame_range_node])
@@ -385,16 +393,16 @@ class Window(QtWidgets.QMainWindow):
     def copy_shot(self, indexes):
         logger.info("Shot Copied")
         index = indexes[0]
-
         item = (self.model.itemFromIndex(index))
-        print ("Item Data: {0}".format(item.data(QtCore.Qt.UserRole)))
-        print ("Item Data: {0}".format(item.data(QtCore.Qt.UserRole+2)))
         logger.info("Icon: {0}".format(item.icon()))
         self.copyDataTree = self.iterItems(item)
         logger.info("dataTree: {0}".format(self.copyDataTree))
 
-    def paste_shot(self, indexes):
 
+    def paste_shot(self, indexes):
+        '''
+        indexe list of indexes
+        '''
         for index in indexes:
             if index.column()  == 1:
                 continue
@@ -404,10 +412,22 @@ class Window(QtWidgets.QMainWindow):
                 logger.info("Item Child: {0}".format(item.child(row, 0)) )
                 self.delete([item.child(row, 0).index()])
             self.iterateDataTreeCreateStandardItems(self.copyDataTree, item)
+            parent = item.parent()
+            if parent is None:
+                parent =  self.model.invisibleRootItem()
+            self.set_attrs_item(item, self.copyDataTree.val[0])
+            self.set_attrs_item(parent.child(item.row(), 1), self.copyDataTree.val[1])
+
+    def set_attrs_item(self,item, attributes):
+        item.setText(attributes['name'])
+        item.setCheckable(attributes['checkable'])
+        item.setEditable(attributes['editable'])
+        item.setData(attributes['user_type'],QtCore.Qt.UserRole + 1)
+        if attributes['user_type'] != "frame_range":
+            item.setCheckState(attributes["checkState"])
 
     def loop_iterate_up(self, item, items_list):
         if item == None:
-            print (items_list)
             for item in items_list:
                 try:
                     item.setCheckState(QtCore.Qt.Checked)
@@ -425,7 +445,7 @@ class Window(QtWidgets.QMainWindow):
 
     def iterate_down(self, item, checkState):
         if item.parent() is None:
-            print ("END")
+            logger.debug("Iterate down: item.parent() is None")
         else:
             allSame, child_list = self.all_same(item)
             if allSame and child_list[0] == QtCore.Qt.Unchecked:
@@ -434,6 +454,29 @@ class Window(QtWidgets.QMainWindow):
             else:
                 item.parent().setCheckState(QtCore.Qt.Checked)
                 self.iterate_down(item.parent(), checkState)
+
+
+    def save(self):
+        item = self.model.invisibleRootItem()
+        treeData = self.iterItems(item)
+        pickleData = codecs.encode(pickle.dumps(treeData), "base64").decode()
+        hou.node("/").setUserData("whSubmitter", pickleData)
+        logger.info("SAVED DATA TO ROOT")
+
+    def load(self):
+        arguments_pickle = hou.node("/").userData("whSubmitter")
+        unpickled = pickle.loads(codecs.decode(arguments_pickle.encode(), "base64"))
+        self.copyDataTree = unpickled
+        item = self.model.invisibleRootItem()
+        index = item.index()
+        self.load_tree(self.copyDataTree, item)
+        logger.info("LOADING DATA FROM ROOT")
+
+    def load_tree(self, dataTree, item):
+        for row in reversed(range(item.rowCount())):
+            logger.info("Item Child: {0}".format(item.child(row, 0)))
+            self.delete([item.child(row, 0).index()])
+        self.iterateDataTreeCreateStandardItems(dataTree, item)
 
 class StandardItemModel(QtGui.QStandardItemModel):
     itemDataChanged = QtCore.Signal(object, object)
