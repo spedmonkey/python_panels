@@ -2,7 +2,6 @@ from PySide2 import QtWidgets, QtGui, QtCore
 import logging
 import os
 import hou
-import base64
 import pickle
 import codecs
 logging.basicConfig(level=logging.DEBUG)
@@ -137,13 +136,12 @@ class Window(QtWidgets.QMainWindow):
     def refresh(self):
         indexes = self.view.selectedIndexes()
         render_nodes = self.get_render_nodes()
-
         for index in indexes:
             item = self.model.itemFromIndex(index)
             if item.data(QtCore.Qt.UserRole+1) != "shot":
                 continue
-            render_node_list = self.get_active_render_nodes(item)
-
+            render_node_list = list(self.recursive_walk(item))
+            logger.info("Column 0 nodes: {0}".format(render_node_list))
             for render_node in render_nodes:
                 if render_node not in render_node_list:
                     self.RENDER_NODE['name'] = render_node
@@ -152,30 +150,18 @@ class Window(QtWidgets.QMainWindow):
                     new_item2 =  self.generic_item(**self.FRAME_RANGE)
                     item.appendRow([new_item, new_item2])
 
-    def loop_get_active_render_nodes(self, item, render_node_list):
+    def recursive_walk(self, item):
         for row in range(item.rowCount()):
-            child = item.child(row,0)
-            if child.hasChildren() == True:
-                self.loop_get_active_render_nodes(child, render_node_list)
-            else:
-                render_node_list.append(item.child(row, 0).text())
-
-    def get_active_render_nodes(self, item):
-        render_node_list = []
-        self.loop_get_active_render_nodes(item, render_node_list)
-        return render_node_list
+            subnode = item.child(row, 0)
+            yield subnode.text()
+            yield from self.recursive_walk(subnode)
 
     def delete(self, indexes):
-        logger.info("Running Delete")
-        row_list = []
-        index_list = []
-        for index in indexes:
-            if index.row() not in row_list:
-                row_list.append(index.row())
-                index_list.append(index.parent())
-
-        for index, value in reversed(list(enumerate(row_list))):
-            self.model.removeRow(row_list[index], index_list[index])
+        logger.info("Deleting Item")
+        for index in reversed(indexes):
+            if index.column() == 1:
+                continue
+            self.model.removeRow(index.row(), index.parent())
 
     def group_shots(self):
         '''
@@ -218,8 +204,6 @@ class Window(QtWidgets.QMainWindow):
                 new_item =  self.generic_item(**self.RENDER_NODE)
                 new_item2 =  self.generic_item(**self.FRAME_RANGE)
                 test.appendRow([new_item, new_item2])
-
-
 
     def generic_item(self, *args, **kwargs):
         item = QtGui.QStandardItem(kwargs["name"])
@@ -373,8 +357,10 @@ class Window(QtWidgets.QMainWindow):
         '''
         indexe list of indexes
         '''
+
+
         for index in indexes:
-            if index.column()  == 1:
+            if index.column() == 1:
                 continue
             item = (self.model.itemFromIndex(index))
             for row in reversed(range(item.rowCount())):
@@ -382,17 +368,18 @@ class Window(QtWidgets.QMainWindow):
             self.iterateDataTreeCreateStandardItems(self.copyDataTree, item)
             parent = item.parent()
             if parent is None:
-                parent =  self.model.invisibleRootItem()
+                parent = self.model.invisibleRootItem()
             self.set_attrs_item(item, self.copyDataTree.val[0])
             self.set_attrs_item(parent.child(item.row(), 1), self.copyDataTree.val[1])
 
     def set_attrs_item(self,item, attributes):
-        item.setText(attributes['name'])
         item.setCheckable(attributes['checkable'])
         item.setEditable(attributes['editable'])
         item.setData(attributes['user_type'],QtCore.Qt.UserRole + 1)
         if attributes['user_type'] != "frame_range":
             item.setCheckState(attributes["checkState"])
+        else:
+            item.setText(attributes['name'])
 
     def loop_iterate_up(self, item, items_list):
         if item == None:
